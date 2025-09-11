@@ -1,11 +1,12 @@
 import { createOAuth2Request, sendTokenRequest, sendTokenRevocationRequest } from "../request.js";
 import { createS256CodeChallenge, type OAuth2Tokens } from "../oauth2.js";
+import type { OAuth2Provider, OAuth2AuthorizationOptions, OAuth2ValidationOptions } from "../provider.js";
 
 const authorizationEndpoint = "https://id.kick.com/oauth/authorize";
 const tokenEndpoint = "https://id.kick.com/oauth/token";
 const tokenRevocationEndpoint = "https://id.kick.com/oauth/revoke";
 
-export class Kick {
+export class Kick implements OAuth2Provider<["state", "codeVerifier", "scopes"], ["code", "codeVerifier"]> {
 	private clientId: string;
 	private clientSecret: string;
 	private redirectURI: string;
@@ -16,7 +17,10 @@ export class Kick {
 		this.redirectURI = redirectURI;
 	}
 
-	public createAuthorizationURL(state: string, codeVerifier: string, scopes: string[]): URL {
+	public createAuthorizationURL(options: Pick<OAuth2AuthorizationOptions, "state" | "codeVerifier" | "scopes">): URL {
+		const { state, codeVerifier, scopes = [] } = options;
+		if (!state) throw new Error("state is required");
+		if (!codeVerifier) throw new Error("codeVerifier is required");
 		const url = new URL(authorizationEndpoint);
 		url.searchParams.set("client_id", this.clientId);
 		url.searchParams.set("response_type", "code");
@@ -32,9 +36,11 @@ export class Kick {
 	}
 
 	public async validateAuthorizationCode(
-		code: string,
-		codeVerifier: string
+		options: Pick<OAuth2ValidationOptions, "code" | "codeVerifier">
 	): Promise<OAuth2Tokens> {
+		const { code, codeVerifier } = options;
+		if (!code) throw new Error("code is required");
+		if (!codeVerifier) throw new Error("codeVerifier is required");
 		const body = new URLSearchParams();
 		body.set("code", code);
 		body.set("client_id", this.clientId);

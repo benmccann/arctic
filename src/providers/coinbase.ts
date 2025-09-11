@@ -1,4 +1,5 @@
 import { createOAuth2Request, sendTokenRequest, sendTokenRevocationRequest } from "../request.js";
+import type { OAuth2Provider, OAuth2AuthorizationOptions, OAuth2ValidationOptions } from "../provider.js";
 
 import type { OAuth2Tokens } from "../oauth2.js";
 
@@ -6,7 +7,7 @@ const authorizationEndpoint = "https://www.coinbase.com/oauth/authorize";
 const tokenEndpoint = "https://www.coinbase.com/oauth/token";
 const tokenRevocationEndpoint = "https://api.coinbase.com/oauth/revoke";
 
-export class Coinbase {
+export class Coinbase implements OAuth2Provider<["state", "scopes"], ["code"]> {
 	private clientId: string;
 	private clientSecret: string;
 	private redirectURI: string;
@@ -17,7 +18,9 @@ export class Coinbase {
 		this.redirectURI = redirectURI;
 	}
 
-	public createAuthorizationURL(state: string, scopes: string[]): URL {
+	public createAuthorizationURL(options: Pick<OAuth2AuthorizationOptions, "state" | "scopes">): URL {
+		const { state, scopes = [] } = options;
+		if (!state) throw new Error("state is required");
 		const url = new URL(authorizationEndpoint);
 		url.searchParams.set("response_type", "code");
 		url.searchParams.set("client_id", this.clientId);
@@ -29,9 +32,11 @@ export class Coinbase {
 		return url;
 	}
 
-	public async validateAuthorizationCode(code: string): Promise<OAuth2Tokens> {
+	public async validateAuthorizationCode(options: Pick<OAuth2ValidationOptions, "code">): Promise<OAuth2Tokens> {
 		const body = new URLSearchParams();
 		body.set("grant_type", "authorization_code");
+		const { code } = options;
+		if (!code) throw new Error("code is required");
 		body.set("code", code);
 		body.set("redirect_uri", this.redirectURI);
 		body.set("client_id", this.clientId);

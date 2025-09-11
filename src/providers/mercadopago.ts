@@ -1,12 +1,13 @@
 import { createS256CodeChallenge } from "../oauth2.js";
 import { createOAuth2Request, sendTokenRequest } from "../request.js";
+import type { OAuth2Provider, OAuth2AuthorizationOptions, OAuth2ValidationOptions } from "../provider.js";
 
 import type { OAuth2Tokens } from "../oauth2.js";
 
 const authorizationEndpoint = "https://auth.mercadopago.com/authorization";
 const tokenEndpoint = "https://api.mercadopago.com/oauth/token";
 
-export class MercadoPago {
+export class MercadoPago implements OAuth2Provider<["state", "codeVerifier"], ["code", "codeVerifier"]> {
 	public clientId: string;
 
 	private clientSecret: string;
@@ -19,7 +20,10 @@ export class MercadoPago {
 	}
 
 	// `scopes` not required since they are defined in the application settings
-	public createAuthorizationURL(state: string, codeVerifier: string): URL {
+	public createAuthorizationURL(options: Pick<OAuth2AuthorizationOptions, "state" | "codeVerifier">): URL {
+		const { state, codeVerifier } = options;
+		if (!state) throw new Error("state is required");
+		if (!codeVerifier) throw new Error("codeVerifier is required");
 		const url = new URL(authorizationEndpoint);
 		url.searchParams.set("response_type", "code");
 		url.searchParams.set("client_id", this.clientId);
@@ -32,9 +36,11 @@ export class MercadoPago {
 	}
 
 	public async validateAuthorizationCode(
-		code: string,
-		codeVerifier: string
+		options: Pick<OAuth2ValidationOptions, "code" | "codeVerifier">
 	): Promise<OAuth2Tokens> {
+		const { code, codeVerifier } = options;
+		if (!code) throw new Error("code is required");
+		if (!codeVerifier) throw new Error("codeVerifier is required");
 		const body = new URLSearchParams();
 		body.set("grant_type", "authorization_code");
 		body.set("code", code);

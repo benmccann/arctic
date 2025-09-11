@@ -1,20 +1,23 @@
 import { CodeChallengeMethod, OAuth2Client } from "../client.js";
+import type { OAuth2Provider, OAuth2AuthorizationOptions, OAuth2ValidationOptions } from "../provider.js";
 
 import type { OAuth2Tokens } from "../oauth2.js";
 
 const authorizationEndpoint = "https://accounts.spotify.com/authorize";
 const tokenEndpoint = "https://accounts.spotify.com/api/token";
 
-export class Spotify {
+export class Spotify implements OAuth2Provider<["state", "codeVerifier", "scopes"], ["code", "codeVerifier"]> {
 	private client: OAuth2Client;
 
 	constructor(clientId: string, clientSecret: string | null, redirectURI: string) {
 		this.client = new OAuth2Client(clientId, clientSecret, redirectURI);
 	}
 
-	public createAuthorizationURL(state: string, codeVerifier: string | null, scopes: string[]): URL {
+	public createAuthorizationURL(options: Pick<OAuth2AuthorizationOptions, "state" | "codeVerifier" | "scopes">): URL {
+		const { state, codeVerifier, scopes = [] } = options;
+		if (!state) throw new Error("state is required");
 		let url: URL;
-		if (codeVerifier !== null) {
+		if (codeVerifier) {
 			url = this.client.createAuthorizationURLWithPKCE(
 				authorizationEndpoint,
 				state,
@@ -29,10 +32,11 @@ export class Spotify {
 	}
 
 	public async validateAuthorizationCode(
-		code: string,
-		codeVerifier: string | null
+		options: Pick<OAuth2ValidationOptions, "code" | "codeVerifier">
 	): Promise<OAuth2Tokens> {
-		const tokens = await this.client.validateAuthorizationCode(tokenEndpoint, code, codeVerifier);
+		const { code, codeVerifier } = options;
+		if (!code) throw new Error("code is required");
+		const tokens = await this.client.validateAuthorizationCode(tokenEndpoint, code, codeVerifier || null);
 		return tokens;
 	}
 
